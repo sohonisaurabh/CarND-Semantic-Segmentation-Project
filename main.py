@@ -41,11 +41,7 @@ def load_vgg(sess, vgg_path):
     layer4_out = default_graph.get_tensor_by_name(vgg_layer4_out_tensor_name)
     layer7_out = default_graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
 
-    #Apply scaling on outputs of 3 and 4 pooling layers as suggested in the paper
-    layer3_out_scaled = tf.multiply(layer3_out, 0.0001, name='layer3_out_scaled')
-    layer4_out_scaled = tf.multiply(layer4_out, 0.01, name='layer4_out_scaled')
-
-    return input_image, keep_prob, layer3_out_scaled, layer4_out_scaled, layer7_out
+    return input_image, keep_prob, layer3_out, layer4_out, layer7_out
 tests.test_load_vgg(load_vgg, tf)
 
 
@@ -58,6 +54,10 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
+
+    #Apply scaling on outputs of 3 and 4 pooling layers as suggested in the paper
+    vgg_layer3_out = tf.multiply(vgg_layer3_out, 0.0001, name='layer3_out_scaled')
+    vgg_layer4_out = tf.multiply(vgg_layer4_out, 0.01, name='layer4_out_scaled')
 
     conv_7_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, strides=(1,1),
                         padding='same', kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
