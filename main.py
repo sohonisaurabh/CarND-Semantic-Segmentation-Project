@@ -56,6 +56,8 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
 
     #Apply scaling on outputs of 3 and 4 pooling layers as suggested in the paper
+
+    #Disabling scaling for now
     vgg_layer3_out = tf.multiply(vgg_layer3_out, 0.0001, name='layer3_out_scaled')
     vgg_layer4_out = tf.multiply(vgg_layer4_out, 0.01, name='layer4_out_scaled')
 
@@ -93,11 +95,12 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     """
 
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    correct_label = tf.reshape(correct_label, (-1, num_classes))
     cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
     reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
     reg_constant = 1  # Choose an appropriate one.
-    total_loss = cross_entropy_loss + reg_constant * sum(reg_losses)
-    optimizer = tf.train.AdamOptimizer(learning_rate= learning_rate)
+    total_loss = cross_entropy_loss + (reg_constant * sum(reg_losses))
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(total_loss)
 
     return logits, total_loss, train_op
@@ -160,7 +163,7 @@ def run():
 
         # TODO: Train NN using the train_nn function
         num_epochs = 5
-        batch_size = 50
+        batch_size = 200
 
         correct_label = tf.placeholder(tf.int32, [None, None, None, num_classes], name='correct_label')
         learning_rate = tf.placeholder(tf.float32, name='learning_rate')
