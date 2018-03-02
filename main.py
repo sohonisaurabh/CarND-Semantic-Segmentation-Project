@@ -63,33 +63,27 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 
     conv_7_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, strides=(1,1),
                         padding='same',
-                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3),
-                        kernel_initializer= tf.random_normal_initializer(stddev=0.01))
+                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
     upsample_2x_1 = tf.layers.conv2d_transpose(conv_7_1x1, num_classes, 4, strides=(2, 2),
                         padding='same',
-                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3),
-                        kernel_initializer= tf.random_normal_initializer(stddev=0.01))
+                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
 
     conv_4_1x1 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, strides=(1,1),
                         padding='same',
-                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3),
-                        kernel_initializer= tf.random_normal_initializer(stddev=0.01))
+                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
     skip_layer_4 = tf.add(upsample_2x_1, conv_4_1x1)
     upsample_2x_2 = tf.layers.conv2d_transpose(skip_layer_4, num_classes, 4, strides=(2, 2),
                         padding='same',
-                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3),
-                        kernel_initializer= tf.random_normal_initializer(stddev=0.01))
+                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
 
     conv_3_1x1 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, strides=(1,1),
                         padding='same',
-                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3),
-                        kernel_initializer= tf.random_normal_initializer(stddev=0.01))
+                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
     skip_layer_3 = tf.add(upsample_2x_2, conv_3_1x1)
 
     upsample_8x = tf.layers.conv2d_transpose(skip_layer_3, num_classes, 16, strides=(8, 8),
                         padding='same',
-                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3),
-                        kernel_initializer= tf.random_normal_initializer(stddev=0.01))
+                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
 
 
     return upsample_8x
@@ -138,10 +132,10 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     for epoch in range(epochs):
         print("Training epoch: ", epoch)
         for image, label in get_batches_fn(batch_size):
-            loss = sess.run([train_op, cross_entropy_loss],
+            train_op, loss = sess.run([train_op, cross_entropy_loss],
                                feed_dict={input_image: image, correct_label: label, keep_prob: 0.5,
                                learning_rate: 1})
-        print("Training loss is: ", loss)
+        print("Training Loss is: = {:.3f}".format(loss))
         print("------------------")
 tests.test_train_nn(train_nn)
 
