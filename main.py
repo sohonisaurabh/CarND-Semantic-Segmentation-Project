@@ -42,7 +42,7 @@ def load_vgg(sess, vgg_path):
     layer7_out = default_graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
 
     return input_image, keep_prob, layer3_out, layer4_out, layer7_out
-#tests.test_load_vgg(load_vgg, tf)
+tests.test_load_vgg(load_vgg, tf)
 
 
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
@@ -56,8 +56,6 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
 
     #Apply scaling on outputs of 3 and 4 pooling layers as suggested in the paper
-
-    #Disabling scaling for now
     vgg_layer3_out = tf.multiply(vgg_layer3_out, 0.0001, name='layer3_out_scaled')
     vgg_layer4_out = tf.multiply(vgg_layer4_out, 0.01, name='layer4_out_scaled')
 
@@ -87,7 +85,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 
 
     return upsample_8x
-#tests.test_layers(layers)
+tests.test_layers(layers)
 
 
 def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
@@ -110,7 +108,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     train_op = optimizer.minimize(total_loss)
 
     return logits, train_op, total_loss
-#tests.test_optimize(optimize)
+tests.test_optimize(optimize)
 
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
@@ -132,14 +130,12 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     for epoch in range(epochs):
         print("Training epoch: ", epoch + 1)
         for image, label in get_batches_fn(batch_size):
-            #print("Image is: ", image)
-            #print("Label is: ", label)
             training_op_result, loss = sess.run([train_op, cross_entropy_loss],
                                feed_dict={input_image: image, correct_label: label, keep_prob: 0.5,
-                               learning_rate: 0.0005})
+                               learning_rate: 0.0008})
         print("Training Loss is: ", loss)
         print("------------------")
-#tests.test_train_nn(train_nn)
+tests.test_train_nn(train_nn)
 
 
 def run():
@@ -147,14 +143,10 @@ def run():
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
-    #tests.test_for_kitti_dataset(data_dir)
+    tests.test_for_kitti_dataset(data_dir)
 
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
-
-    # OPTIONAL: Train and Inference on the cityscapes dataset instead of the Kitti dataset.
-    # You'll need a GPU with at least 10 teraFLOPS to train on.
-    #  https://www.cityscapes-dataset.com/
 
     with tf.Session() as sess:
         # Path to vgg model
@@ -162,14 +154,11 @@ def run():
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
 
-        # OPTIONAL: Augment Images for better results
-        #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
-
-        # TODO: Build NN using load_vgg, layers, and optimize function
+        # Build NN using load_vgg, layers, and optimize function
         input_image, keep_prob, layer3_out_scaled, layer4_out_scaled, layer7_out = load_vgg(sess, vgg_path)
         output = layers(layer3_out_scaled, layer4_out_scaled, layer7_out, num_classes)
 
-        # TODO: Train NN using the train_nn function
+        # Train NN using the train_nn function
         num_epochs = 25
         batch_size = 5
 
@@ -180,11 +169,8 @@ def run():
         train_nn(sess, num_epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
                     correct_label, keep_prob, learning_rate)
 
-        # TODO: Save inference data using helper.save_inference_samples
-        #helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
-
-        # OPTIONAL: Apply the trained model to a video
-
+        # Save inference data using helper.save_inference_samples
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 
 if __name__ == '__main__':
     run()
