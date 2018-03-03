@@ -32,6 +32,7 @@ def load_vgg(sess, vgg_path):
     vgg_layer4_out_tensor_name = 'layer4_out:0'
     vgg_layer7_out_tensor_name = 'layer7_out:0'
 
+    #Load VGG-16 model
     tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
     default_graph = tf.get_default_graph()
 
@@ -55,34 +56,53 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
 
-    #Apply scaling on outputs of 3 and 4 pooling layers as suggested in the paper
+    #Apply scaling on outputs of 3 and 4 pooling layers as to further reduce loss
     vgg_layer3_out = tf.multiply(vgg_layer3_out, 0.0001, name='layer3_out_scaled')
     vgg_layer4_out = tf.multiply(vgg_layer4_out, 0.01, name='layer4_out_scaled')
 
+    #Decoder portion begins
+    # Layer 1: 1x1 convolution to reduce filters from 4096 to num_classes (2 in this case)
     conv_7_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, strides=(1,1),
                         padding='same',
+                        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                         kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
+
+    # Layer 2: Connection between con_7_1x1 and skip connection from layer 4
+    #    i. First, con_7_1x1 needs to be upsampled by 2 to match with dimensions of layer 4
+    #    ii. Then 1x1 convolution on layer 4 brings down the number of filters to num_classes (2 in this case)
+    #    iii. skip layer is created with additive connection from layer 4 and conv_7_1x1
     upsample_2x_1 = tf.layers.conv2d_transpose(conv_7_1x1, num_classes, 4, strides=(2, 2),
                         padding='same',
+                        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                         kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
 
     conv_4_1x1 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, strides=(1,1),
                         padding='same',
+                        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                         kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
     skip_layer_4 = tf.add(upsample_2x_1, conv_4_1x1)
+
+    # Layer 3: Connection between skip_layer_4 and skip connection from layer 3
+    #    i. First, skip_layer_4 needs to be upsampled by 2 to match with dimensions of layer 3
+    #    ii. Then 1x1 convolution on layer 3 brings down the number of filters to num_classes (2 in this case)
+    #    iii. skip layer is created with additive connection from layer 3 and skip_layer_4
     upsample_2x_2 = tf.layers.conv2d_transpose(skip_layer_4, num_classes, 4, strides=(2, 2),
                         padding='same',
+                        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                         kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
 
     conv_3_1x1 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, strides=(1,1),
                         padding='same',
+                        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                         kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
     skip_layer_3 = tf.add(upsample_2x_2, conv_3_1x1)
 
+    # Layer 4: Upsampler to regain input image. skip_layer_3 needs to be upsampled by 8 to match original image
+    #            spatial dimensions
     upsample_8x = tf.layers.conv2d_transpose(skip_layer_3, num_classes, 16, strides=(8, 8),
                         padding='same',
+                        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                         kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
-
 
     return upsample_8x
 tests.test_layers(layers)
@@ -98,12 +118,22 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
 
+    #Reshape logits to 2D tensor
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    #Reshape labels to 2D tensor
     correct_label = tf.reshape(correct_label, (-1, num_classes))
+
+    #Calculate cross entropy loss after applying soft max
     cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
+
+    #Collate regularizer losses encountered on addition of regularization on each decoder layer
     reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
     reg_constant = 1  # Choose an appropriate one.
+
+    #Calculate total loss
     total_loss = cross_entropy_loss + (reg_constant * sum(reg_losses))
+
+    #Use Adam optimizer for training
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(total_loss)
 
@@ -162,6 +192,7 @@ def run():
         num_epochs = 25
         batch_size = 5
 
+        #TF placeholders for label and learning_rate. Keep probability is already availble in the VGG graph
         correct_label = tf.placeholder(tf.int32, [None, None, None, num_classes], name='correct_label')
         learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 
